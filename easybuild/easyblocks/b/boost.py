@@ -58,6 +58,14 @@ class EB_Boost(EasyBlock):
 
         self.objdir = None
 
+        extravars = {
+            'BOOST_ROOT': self.installdir
+        }
+        if self.cfg['modextravars']:
+            self.cfg['modextravars'].update(extravars)
+        else:
+            self.cfg['modextravars'] = extravars
+
     @staticmethod
     def extra_options():
         """Add extra easyconfig parameters for Boost."""

@@ -28,6 +28,17 @@ class EB_Eigen(EasyBlock):
     """
     Support for building Eigen.
     """
+    
+    def __init__(self, *args, **kwargs):
+        super(EB_Eigen, self).__init__(*args, **kwargs)
+
+        extravars = {
+            'EIGEN3_ROOT': self.installdir
+        }
+        if self.cfg['modextravars']:
+            self.cfg['modextravars'].update(extravars)
+        else:
+            self.cfg['modextravars'] = extravars
 
     def configure_step(self):
         """
