@@ -136,14 +136,14 @@ class EB_GCC(ConfigureMake):
                 if envvar:
                     configopts += " --with-%s=%s" % (extra, envvar)
                     extra_src_dirs.remove(extra)
-                elif extra in self.with_dirs and stage in ["stage1", "stage3"]:
+                # elif extra in self.with_dirs and stage in ["stage1", "stage3"]:
                     # building CLooG or PPL or ISL requires a recent compiler
                     # our best bet is to do a 3-staged build of GCC, and
                     # build CLooG/PPL/ISL with the GCC we're building in stage 2
                     # then (bootstrap) build GCC in stage 3
                     # also, no need to stage cloog/ppl/isl in stage3 (may even cause troubles)
-                    self.stagedbuild = True
-                    extra_src_dirs.remove(extra)
+                    # self.stagedbuild = True
+                    # extra_src_dirs.remove(extra)
 
             # try and find source directories with given prefixes
             # these sources should be included in list of sources in .eb spec file,
