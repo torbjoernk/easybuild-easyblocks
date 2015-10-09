@@ -89,8 +89,6 @@ class EB_Boost(EasyBlock):
     def configure_step(self):
         """Configure Boost build using custom tools"""
 
-        configopts = "--prefix=%s" % self.objdir
-
         # mpi sanity check
         if self.cfg['boost_mpi'] and not self.toolchain.options.get('usempi', None):
             raise EasyBuildError("When enabling building boost_mpi, also enable the 'usempi' toolchain option.")
@@ -113,12 +111,12 @@ class EB_Boost(EasyBlock):
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
-        configopts += " --with-toolset=%s" % toolset
+        self.cfg['preconfigopts'].update(" --prefix=%s --with-toolset=%s" % self.objdir, toolset)
 
         if not self.cfg['boost_mpi']:
-            configopts += " --without-libraries=mpi"
+            self.cfg['preconfigopts'].update(" --without-libraries=mpi")
 
-        cmd = "./bootstrap.sh %s %s" % (configopts, self.cfg['configopts'])
+        cmd = "%s ./bootstrap.sh %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
         run_cmd(cmd, log_all=True, simple=True)
 
         if self.cfg['boost_mpi']:
