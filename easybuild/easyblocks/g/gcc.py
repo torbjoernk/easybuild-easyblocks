@@ -263,8 +263,8 @@ class EB_GCC(ConfigureMake):
         # use POSIX threads
         self.configopts += " --enable-threads=posix "
         # use GOLD as default linker, enable plugin support
-        self.configopts += " --enable-gold=default --enable-plugins "
-        self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
+        # self.configopts += " --enable-gold=default --enable-plugins "
+        # self.configopts += " --enable-ld --with-plugin-ld=ld.gold"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:

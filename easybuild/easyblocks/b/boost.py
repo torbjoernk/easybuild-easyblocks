@@ -52,6 +52,9 @@ from easybuild.tools.systemtools import get_glibc_version, UNKNOWN
 class EB_Boost(EasyBlock):
     """Support for building Boost."""
 
+    BJAM_BUILD_TYPES = ['minimal', 'complete']
+    BJAM_LAYOUTS = ['versioned', 'tagged', 'system']
+
     def __init__(self, *args, **kwargs):
         """Initialize Boost-specific variables."""
         super(EB_Boost, self).__init__(*args, **kwargs)
@@ -64,6 +67,8 @@ class EB_Boost(EasyBlock):
         extra_vars = {
             'boost_mpi': [False, "Build mpi boost module", CUSTOM],
             'toolset': [None, "Toolset to use for Boost configuration ('--with-toolset for bootstrap.sh')", CUSTOM],
+            'build_type': ['complete', "build type as passed to 'b2 --build_type=[...] install'", CUSTOM],
+            'layout': ['', "naming scheme as passed to 'b2 --layout=...' install", CUSTOM]
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -101,6 +106,8 @@ class EB_Boost(EasyBlock):
         except OSError, err:
             raise EasyBuildError("Failed to create directory %s: %s", self.objdir, err)
 
+        self.cfg.update('configopts', " --prefix=%s" % self.objdir)
+
         # generate config depending on compiler used
         toolset = self.cfg['toolset']
         if toolset is None:
@@ -111,10 +118,10 @@ class EB_Boost(EasyBlock):
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
-        self.cfg['preconfigopts'].update(" --prefix=%s --with-toolset=%s" % self.objdir, toolset)
+        self.cfg.update('configopts', " --with-toolset=%s" % toolset)
 
         if not self.cfg['boost_mpi']:
-            self.cfg['preconfigopts'].update(" --without-libraries=mpi")
+            self.cfg.update('configopts', " --without-libraries=mpi")
 
         cmd = "%s ./bootstrap.sh %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
         run_cmd(cmd, log_all=True, simple=True)
@@ -131,35 +138,51 @@ class EB_Boost(EasyBlock):
     def build_step(self):
         """Build Boost with bjam tool."""
 
-        bjamoptions = " --prefix=%s" % self.objdir
+        self.cfg.update('buildopts', " --prefix=%s" % self.objdir)
 
         if self.cfg['parallel']:
-            bjamoptions += " -j%s" % self.cfg['parallel']
+            self.cfg.update('buildopts', " -j%s" % self.cfg['parallel'])
 
         # specify path for bzip2/zlib if module is loaded
         for lib in ["bzip2", "zlib"]:
             libroot = get_software_root(lib)
             if libroot:
-                bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
-                bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
+                self.cfg.update('buildopts', " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot))
+                self.cfg.update('buildopts', " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot))
+
+        if self.cfg['build_type']:
+            if self.cfg['build_type'] in EB_Boost.BJAM_BUILD_TYPES:
+                self.cfg.update('buildopts', " --build_type=%s" % self.cfg['build_type'])
+            else:
+                raise EasyBuildError("Invalid build type for bjam: %s" % self.cfg['build_type'])
+
+        if self.cfg['layout']:
+            if self.cfg['layout'] in EB_Boost.BJAM_LAYOUTS:
+                self.cfg.update('buildopts', " --layout=%s" % self.cfg['layout'])
+            else:
+                raise EasyBuildError("Invalid layout for bjam: %s" % self.cfg['layout'])
 
         if self.cfg['boost_mpi']:
             self.log.info("Building boost_mpi library")
 
-            bjammpioptions = "%s --user-config=user-config.jam --with-mpi" % bjamoptions
+            bjammpioptions = "%s --user-config=user-config.jam --with-mpi" % self.cfg['buildopts']
 
             # build mpi lib first
             # let bjam know about the user-config.jam file we created in the configure step
-            run_cmd("./bjam %s" % bjammpioptions, log_all=True, simple=True)
+            run_cmd("./bjam %s stage" % bjammpioptions, log_all=True, simple=True)
 
             # boost.mpi was built, let's 'install' it now
-            run_cmd("./bjam %s  install" % bjammpioptions, log_all=True, simple=True)
+            run_cmd("./bjam %s install" % bjammpioptions, log_all=True, simple=True)
+
+        # install remainder of boost libraries
+        self.log.info("Staging boost libraries")
+
+        run_cmd("./bjam %s stage" % self.cfg['buildopts'], log_all=True, simple=True)
 
         # install remainder of boost libraries
         self.log.info("Installing boost libraries")
 
-        cmd = "./bjam %s install" % bjamoptions
-        run_cmd(cmd, log_all=True, simple=True)
+        run_cmd("./bjam %s install" % self.cfg['buildopts'], log_all=True, simple=True)
 
     def install_step(self):
         """Install Boost by copying file to install dir."""
@@ -180,8 +203,8 @@ class EB_Boost(EasyBlock):
     def sanity_check_step(self):
         """Custom sanity check for Boost."""
         custom_paths = {
-            'files': ['lib/libboost_system.so'],
-            'dirs': ['include/boost']
+            'files': [],
+            'dirs': ['include/boost', 'lib']
         }
 
         if self.cfg['boost_mpi']:
